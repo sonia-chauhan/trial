@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="80eba04a-59ab-4200-8ee5-672eb47d0941" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="73a3634e-9ee4-4ca6-ae0c-befe453d7c75" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="root0728" database="mydb" />
+	</db:config>
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="c4d6bfdb-8d21-4311-aa6a-69b09f1beb5b" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="root0728" database="mydb" />
+	</db:config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="fc875018-46f7-4ee6-8998-0b6bb35fb6ba" >
+		<salesforce:basic-connection username="sonia.chauhan259@gmail.com" password="7456893157@S" securityToken="f60DNYOerh3dy87d97SamdJN" />
+	</salesforce:sfdc-config>
+	<flow name="practice-moduleFlow" doc:id="8c01d5af-2352-41ac-8bf1-fffaeb0868f4" >
+		<http:listener doc:name="Listener" doc:id="2b8a7416-0357-4207-9957-5f573175be42" config-ref="HTTP_Listener_config" path="/f1"/>
+		<set-variable value="#[attributes.queryParams.des]" doc:name="Set Variable" doc:id="3482e543-d827-4ec5-a59f-0c186bfc63c0" variableName="des"/>
+		<db:select doc:name="Select" doc:id="6cacf122-be1f-4a38-a4e8-1efdea1c7ee6" config-ref="Database_Config">
+			<db:sql ><![CDATA[select * from employee where designation=:des]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{'des':vars.des}]]]></db:input-parameters>
+		</db:select>
+		<ee:transform doc:name="Transform Message" doc:id="3eb8d814-ae96-49d7-9888-7149e0a47f49" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="practice-moduleFlow1" doc:id="fd18e112-b9c8-445c-9474-58ea43a4e3ec" >
+		<http:listener doc:name="Listener" doc:id="fc3de0e9-2aec-4df3-bfaa-068aaaacd9a0" config-ref="HTTP_Listener_config" path="/f2" allowedMethods="PUT"/>
+		<ee:transform doc:name="Transform Message" doc:id="7af550bc-747b-4f94-a09a-3de7e97f6e38" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map (items,index) ->{
+	FirstName: items.firstname,
+	LastName: items.lastname,
+	Email: items.email,
+	Phone: items.mobile
+} ]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:upsert doc:name="Upsert" doc:id="eb016df9-2d21-44c3-bd2c-eb3966d36911" config-ref="Salesforce_Config" objectType="Contact" externalIdFieldName="Email"/>
+		<ee:transform doc:name="Transform Message" doc:id="f0b0fedb-513c-4743-9251-ccd43c4f14e2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="practice-moduleFlow2" doc:id="f823ec79-508d-428c-a1d2-951edb805d3c" >
+		<http:listener doc:name="Listener" doc:id="03afaa33-0c3b-4013-b826-92e2f77384ab" config-ref="HTTP_Listener_config" path="/f3" allowedMethods="GET"/>
+		<set-variable value="#[attributes.queryParams.bCity default '']" doc:name="Set Variable" doc:id="193cf669-7c4c-4eaa-87a7-07fdf58f0f3f" variableName="bill"/>
+		<choice doc:name="Choice" doc:id="3514f5a0-50d0-4f40-b38e-d8a572135472" >
+			<when expression="#[vars.bill != '']">
+				<salesforce:query doc:name="Query" doc:id="99b60974-41e0-480d-ba11-47411fc5c0f2" config-ref="Salesforce_Config">
+					<salesforce:salesforce-query ><![CDATA[select Name,BillingCity,BillingStreet,BillingCountry,BillingPostalCode from Account where BillingCity='bill']]></salesforce:salesforce-query>
+					<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	"bill" : vars.bill
+}]]]></salesforce:parameters>
+				</salesforce:query>
+			</when>
+			<otherwise >
+				<salesforce:query-all doc:name="Query all" doc:id="08a8f336-4d6a-4729-8a75-b5d2fbd98f83" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query><![CDATA[select Name,BillingCity,BillingStreet,BillingCountry,BillingPostalCode from Account]]></salesforce:salesforce-query>
+		</salesforce:query-all>
+			</otherwise>
+		</choice>
+		<ee:transform doc:name="Transform Message" doc:id="bbe0cdc9-0e0d-4b46-8d0f-21513348a4ca" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
